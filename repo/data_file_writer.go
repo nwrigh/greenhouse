@@ -11,7 +11,7 @@ type DataFileWriter struct {
 }
 
 func (w *DataFileWriter) Write(data string) error {
-	file, err := os.OpenFile("/data/"+w.Filename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	file, err := os.OpenFile(w.Filename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
 		log.Printf("Error opening file: %v", err)
 		return err
