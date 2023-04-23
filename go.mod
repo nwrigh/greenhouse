@@ -1,4 +1,4 @@
-module Greenhouse
+module greenhouse
 
 go 1.20
 
