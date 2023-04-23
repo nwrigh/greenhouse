@@ -5,12 +5,17 @@ import (
 	"fmt"
 	"greenhouse/repo"
 	"greenhouse/sensor"
-	"log"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
 	"time"
+)
+
+const (
+	dataPin      = 4
+	outputFile   = "/data/temperature_data.txt"
+	readInterval = 30 * time.Second
 )
 
 func main() {
@@ -41,6 +46,16 @@ func main() {
 }
 
 func processData(ctx context.Context) {
+	sensor := &sensor.DHT22Sensor{
+		Pin:          dataPin,
+		Retries:      10,
+		IsFahrenheit: false,
+	}
+
+	writer := &repo.DataFileWriter{
+		Filename: outputFile,
+	}
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -48,34 +63,24 @@ func processData(ctx context.Context) {
 			fmt.Println("Shutting down gracefully...")
 			return
 		default:
-			sensor := &sensor.DHT22Sensor{
-				Pin:          7, // Replace with a valid GPIO pin number for your Raspberry Pi setup
-				Retries:      10,
-				IsFahrenheit: false,
-			}
+			// Read temperature and humidity from the DHT22 sensor
+			temperature, humidity, err := sensor.Read()
+			if err != nil {
+				fmt.Printf("Error reading sensor data: %v\n", err)
+			} else {
+				// Log the sensor data
+				fmt.Printf("Temperature: %.2f °C, Humidity: %.2f %%\n", temperature, humidity)
 
-			writer := &repo.DataFileWriter{
-				Filename: "temperature_data.txt",
-			}
-
-			for {
-				temperature, humidity, err := sensor.Read()
+				// Write the sensor data to the output file
+				data := fmt.Sprintf("%s Temperature: %.2f °C, Humidity: %.2f %%\n", time.Now().Format(time.RFC3339), temperature, humidity)
+				err := writer.Write(data)
 				if err != nil {
-					log.Printf("Error reading sensor data: %v", err)
-				} else {
-					data := fmt.Sprintf("Temperature: %.2f°C, Humidity: %.2f%%\n", temperature, humidity)
-					fmt.Print(data)
-
-					err := writer.Write(data)
-					if err != nil {
-						log.Printf("Error writing data to file: %v", err)
-					}
+					fmt.Printf("Error writing sensor data to file: %v\n", err)
 				}
-
-				time.Sleep(30 * time.Second)
 			}
-			fmt.Println("Performing task...")
-			time.Sleep(time.Second * 5)
+
+			// Sleep for the specified interval before the next reading
+			time.Sleep(readInterval)
 		}
 	}
 }
